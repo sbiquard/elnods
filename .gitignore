@@ -1,0 +1,4 @@
+.vscode/
+__pycache__/
+atm_cache/
+elnod_out/
