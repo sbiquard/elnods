@@ -17,7 +17,7 @@ def build_parser():
     parser.add_argument(
         "-v",
         "--verbose",
-        action="store_true",
+        action=argparse.BooleanOptionalAction,
         default=True,
         help="print more information"
     )
