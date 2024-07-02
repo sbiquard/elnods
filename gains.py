@@ -31,12 +31,6 @@ def build_parser():
         "--real", type=int, default=0, help="realization number"
     )
     parser.add_argument(
-        "--noisy",
-        action="store_true",
-        default=False,
-        help="add noise to the data"
-    )
-    parser.add_argument(
         "--outdir",
         type=str,
         default="elnod_out",
@@ -135,43 +129,39 @@ def plot_resid(
     plt.show()
 
 
-def noisy_fit(args, ob, x, y, dets):
-    """Fit a correct model to noisy TOAST data"""
-
-    rel_g_toast = np.asarray(list(ob.scrambled_gains.values()))
-    # ensure a central value of 1
-    rel_g_toast /= np.mean(rel_g_toast)
-
-    raise NotImplementedError("not implemented yet")
-
-
-def wrong_model(args, x, dets):
-    """Fit the wrong model to some fake data"""
-
-    # simulate some fake data following our "true" model
-    y_fake, tau_true, mean_g_true, rel_g_true = make_fake_data(
-        x, noise=args.noisy, realization=args.real
-    )
-    ndet = len(dets)
-
-    # fit linear model to the fake data
-    from models import LinearModel1
+def perform_fit(
+    model: Model,
+    x: np.ndarray,
+    y: np.ndarray,
+    dets: list[str],
+    verbose: bool = True,
+    plot: bool = False
+) -> np.ndarray:
+    # Perform a fit and return the relative gains
     from time import perf_counter
 
-    model = LinearModel1()
     t0 = perf_counter()
-    fit_result = model.fit(x, y_fake, disp=args.verbose)
+    fit_result = model.fit(x, y, disp=args.verbose)
     dt = int((perf_counter() - t0) * 1e3)  # milliseconds
-    if args.verbose:
+
+    if verbose:
+        ndet = len(dets)
         print(f"Model fitting took {dt} ms")
         print(f"({dt / ndet / fit_result.nit:.3} ms / detector / iteration)")
-    #plot_resid(model, dets, fit_result, x_toast, y_fake, title="Linear fit")
-    rel_g_fit = model.rel_gains(fit_result.x)
 
-    # save results
+    if plot:
+        plot_resid(model, dets, fit_result, x, y)
+
+    # return the fitted relative gains
+    rel_g_fit = model.rel_gains(fit_result.x)
+    return rel_g_fit
+
+
+def save_result(args, dets, rel_g_true, rel_g_fit, base_name):
+    """Save the results to a .npz file"""
     os.makedirs(args.outdir, exist_ok=True)
     filename = os.path.join(
-        args.outdir, f"wrong_model_{ndet}_{args.real}.npz"
+        args.outdir, f"{base_name}_{len(dets)}_{args.real}.npz"
     )
     if args.verbose:
         print(f"Saving results to {filename}")
@@ -179,11 +169,40 @@ def wrong_model(args, x, dets):
 
 
 def main(args):
+    from models import LinearModel1
+
     # get the data from TOAST
     ob, dets, times, elevs, x_toast, y_toast = prepare_data(args)
 
-    #noisy_fit(args, ob, x_toast, y_toast, dets)
-    wrong_model(args, x_toast, dets)
+    # noisy fit: fit a correct model to noisy TOAST data
+    # --------------------------------------------------
+
+    if args.verbose:
+        print("----- Running 'noisy fit' case -----")
+
+    # get the scrambled gains
+    rel_g_toast = np.asarray(list(ob.scrambled_gains.values()))
+    # ensure a central value of 1
+    rel_g_toast /= np.mean(rel_g_toast)
+
+    model = LinearModel1()
+    rel_g_fit_noisy = perform_fit(model, x_toast, y_toast, dets, verbose=args.verbose)
+    save_result(args, dets, rel_g_toast, rel_g_fit_noisy, "noisy_fit")
+
+    # wrong model: fit a wrong model to fake data
+    # -------------------------------------------
+
+    if args.verbose:
+        print("\n----- Running 'wrong model' case -----")
+
+    # simulate some fake data following our "true" model
+    y_fake, tau_true, mean_g_true, rel_g_true = make_fake_data(
+        x_toast, noise=False, realization=args.real
+    )
+
+    # fit a linear model
+    rel_g_fit_wrong = perform_fit(model, x_toast, y_fake, dets, verbose=args.verbose)
+    save_result(args, dets, rel_g_toast, rel_g_fit_wrong, "wrong_model")
 
 
 if __name__ == "__main__":
