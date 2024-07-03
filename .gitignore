@@ -3,5 +3,5 @@ __pycache__/
 atm_cache/
 elnod_out/
 notebooks/
+focalplanes/
 *.ipynb
-*.h5
