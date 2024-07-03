@@ -210,7 +210,7 @@ def main(args):
     rel_g_fit_wrong = perform_fit(
         linear_model, x_toast, y_fake, dets, verbose=args.verbose
     )
-    save_result(args, dets, rel_g_toast, rel_g_fit_wrong, "wrong_model")
+    save_result(args, dets, rel_g_true, rel_g_fit_wrong, "wrong_model")
 
     # pointing error
     # --------------
@@ -229,7 +229,7 @@ def main(args):
     rel_g_fit_perror = perform_fit(
         exp_model, x_biased, y_fake, dets, verbose=args.verbose
     )
-    save_result(args, dets, rel_g_toast, rel_g_fit_perror, "pointing_error")
+    save_result(args, dets, rel_g_true, rel_g_fit_perror, "pointing_error")
 
 
 if __name__ == "__main__":
