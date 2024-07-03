@@ -2,3 +2,6 @@
 __pycache__/
 atm_cache/
 elnod_out/
+notebooks/
+*.ipynb
+*.h5
