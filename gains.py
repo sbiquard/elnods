@@ -161,14 +161,17 @@ def perform_fit(
     return rel_g_fit
 
 
-def save_result(args, dets, rel_g_true, rel_g_fit, base_name):
+def save_result(args, dets, base_name, rel_g_true, rel_g_fit, elev_bias=None):
     """Save the results to a .npz file"""
     data_out = os.path.join(args.outdir, "data")
     os.makedirs(data_out, exist_ok=True)
     filename = os.path.join(data_out, f"{base_name}_{len(dets)}_{args.real}.npz")
     if args.verbose:
         print(f"Saving results to {filename}")
-    np.savez(filename, true=rel_g_true, estimate=rel_g_fit)
+    if elev_bias is not None:
+        np.savez(filename, true=rel_g_true, estimate=rel_g_fit, elev_bias=elev_bias)
+    else:
+        np.savez(filename, true=rel_g_true, estimate=rel_g_fit)
 
 
 def main(args):
@@ -195,7 +198,7 @@ def main(args):
     rel_g_fit_noisy = perform_fit(
         linear_model, x_toast, y_toast, dets, verbose=args.verbose
     )
-    save_result(args, dets, rel_g_toast, rel_g_fit_noisy, "noisy_fit")
+    save_result(args, dets, "noisy_fit", rel_g_toast, rel_g_fit_noisy)
 
     # wrong model: fit a wrong model to fake data
     # -------------------------------------------
@@ -210,7 +213,7 @@ def main(args):
     rel_g_fit_wrong = perform_fit(
         linear_model, x_toast, y_fake, dets, verbose=args.verbose
     )
-    save_result(args, dets, rel_g_true, rel_g_fit_wrong, "wrong_model")
+    save_result(args, dets, "wrong_model", rel_g_true, rel_g_fit_wrong)
 
     # pointing error
     # --------------
@@ -229,7 +232,9 @@ def main(args):
     rel_g_fit_perror = perform_fit(
         exp_model, x_biased, y_fake, dets, verbose=args.verbose
     )
-    save_result(args, dets, rel_g_true, rel_g_fit_perror, "pointing_error")
+    save_result(
+        args, dets, "pointing_error", rel_g_true, rel_g_fit_perror, elev_bias=bias
+    )
 
 
 if __name__ == "__main__":
