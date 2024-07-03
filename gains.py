@@ -31,6 +31,13 @@ def build_parser():
         default="elnod_out",
         help="output directory for plots and data files",
     )
+    parser.add_argument(
+        "-perr",
+        "--pointing-error",
+        type=float,
+        default=0.1,
+        help="typical elevation error in degrees",
+    )
     return parser
 
 
@@ -70,10 +77,12 @@ def prepare_data(args):
 def make_fake_data(
     x: np.ndarray,
     noise: bool = False,
+    rng=None,
     realization: Optional[int] = None,
 ):
-    # get a random number generator with optional seed
-    rng = np.random.default_rng(realization)
+    # if not provided, get a random number generator with optional seed
+    if rng is None:
+        rng = np.random.default_rng(realization)
 
     ndet = x.shape[0]
     tau = rng.uniform(low=0.01, high=0.1)
@@ -163,10 +172,13 @@ def save_result(args, dets, rel_g_true, rel_g_fit, base_name):
 
 
 def main(args):
-    from models import LinearModel1
+    from models import LinearModel1, ExpModel1
 
     # get the data from TOAST
     ob, dets, times, elevs, x_toast, y_toast = prepare_data(args)
+
+    # get a random number generator
+    rng = np.random.default_rng(args.real)
 
     # noisy fit: fit a correct model to noisy TOAST data
     # --------------------------------------------------
@@ -179,8 +191,10 @@ def main(args):
     # ensure a central value of 1
     rel_g_toast /= np.mean(rel_g_toast)
 
-    model = LinearModel1()
-    rel_g_fit_noisy = perform_fit(model, x_toast, y_toast, dets, verbose=args.verbose)
+    linear_model = LinearModel1()
+    rel_g_fit_noisy = perform_fit(
+        linear_model, x_toast, y_toast, dets, verbose=args.verbose
+    )
     save_result(args, dets, rel_g_toast, rel_g_fit_noisy, "noisy_fit")
 
     # wrong model: fit a wrong model to fake data
@@ -190,13 +204,32 @@ def main(args):
         print("\n----- Running 'wrong model' case -----")
 
     # simulate some fake data following our "true" model
-    y_fake, tau_true, mean_g_true, rel_g_true = make_fake_data(
-        x_toast, noise=False, realization=args.real
-    )
+    y_fake, tau_true, mean_g_true, rel_g_true = make_fake_data(x_toast, noise=False)
 
     # fit a linear model
-    rel_g_fit_wrong = perform_fit(model, x_toast, y_fake, dets, verbose=args.verbose)
+    rel_g_fit_wrong = perform_fit(
+        linear_model, x_toast, y_fake, dets, verbose=args.verbose
+    )
     save_result(args, dets, rel_g_toast, rel_g_fit_wrong, "wrong_model")
+
+    # pointing error
+    # --------------
+
+    if args.verbose:
+        print("\n----- Running 'pointing error' case -----")
+
+    # add systematic errors to the elevation
+    ndet = len(dets)
+    bias = np.deg2rad(rng.normal(loc=0, scale=args.pointing_error, size=(ndet, 1)))
+    elevs_biased = elevs + bias
+    x_biased = 1 / np.sin(elevs_biased)
+
+    # fit the correct model but with biased x
+    exp_model = ExpModel1()
+    rel_g_fit_perror = perform_fit(
+        exp_model, x_biased, y_fake, dets, verbose=args.verbose
+    )
+    save_result(args, dets, rel_g_toast, rel_g_fit_perror, "pointing_error")
 
 
 if __name__ == "__main__":
