@@ -19,22 +19,17 @@ def build_parser():
         "--verbose",
         action=argparse.BooleanOptionalAction,
         default=True,
-        help="print more information"
+        help="print more information",
     )
     parser.add_argument(
-        "--thinfp",
-        type=int,
-        default=64,
-        help="thin the focalplane by this much"
+        "--thinfp", type=int, default=32, help="thin the focalplane by this much"
     )
-    parser.add_argument(
-        "--real", type=int, default=0, help="realization number"
-    )
+    parser.add_argument("--real", type=int, default=0, help="realization number")
     parser.add_argument(
         "--outdir",
         type=str,
         default="elnod_out",
-        help="output directory for plots and data files"
+        help="output directory for plots and data files",
     )
     return parser
 
@@ -107,7 +102,7 @@ def plot_resid(
     x: np.ndarray,
     y: np.ndarray,
     title: Optional[str] = None,
-    relative: bool = False
+    relative: bool = False,
 ) -> None:
     # Plot fit results
     plt.figure(figsize=(10, 4))
@@ -135,7 +130,7 @@ def perform_fit(
     y: np.ndarray,
     dets: list[str],
     verbose: bool = True,
-    plot: bool = False
+    plot: bool = False,
 ) -> np.ndarray:
     # Perform a fit and return the relative gains
     from time import perf_counter
@@ -159,10 +154,9 @@ def perform_fit(
 
 def save_result(args, dets, rel_g_true, rel_g_fit, base_name):
     """Save the results to a .npz file"""
-    os.makedirs(args.outdir, exist_ok=True)
-    filename = os.path.join(
-        args.outdir, f"{base_name}_{len(dets)}_{args.real}.npz"
-    )
+    data_out = os.path.join(args.outdir, "data")
+    os.makedirs(data_out, exist_ok=True)
+    filename = os.path.join(data_out, f"{base_name}_{len(dets)}_{args.real}.npz")
     if args.verbose:
         print(f"Saving results to {filename}")
     np.savez(filename, true=rel_g_true, estimate=rel_g_fit)

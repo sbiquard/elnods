@@ -3,8 +3,8 @@ from typing import Optional
 
 
 THINFP = 640
-FOCALPLANE = "focalplanes/focalplane_SAT1_SAT_f095.h5"
-SCHEDULE = "schedules/pole_schedule_sat.1ces.txt"
+FOCALPLANE = "focalplanes/focalplane_SAT1_SAT_f095_ST0.h5"
+SCHEDULE = "schedules/atacama.1ces.txt"
 
 
 def simulate_data(
@@ -100,9 +100,7 @@ def simulate_data(
         sim_atm.gain = 0
 
     # Scramble the detector gains
-    scrambler = toast.ops.GainScrambler(
-        sigma=1e-1, store=True, realization=realization
-    )
+    scrambler = toast.ops.GainScrambler(sigma=1e-1, store=True, realization=realization)
 
     # Build the final list of operators
     ops = [sim_ground, det_pointing_azel]
@@ -140,6 +138,7 @@ def get_azel_from_quat(azel_quat):
 
 def get_el_from_quat(azel_quat):
     import toast.qarray as qa
+
     theta, _, _ = qa.to_iso_angles(azel_quat)
     return np.asarray(np.pi / 2 - theta)
 
