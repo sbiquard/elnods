@@ -32,10 +32,9 @@ def build_parser():
         help="output directory for plots and data files",
     )
     parser.add_argument(
-        "-perr",
-        "--pointing-error",
+        "--perr",
         type=float,
-        default=0.1,
+        default=1/60,  # 1 arcminute
         help="typical elevation error in degrees",
     )
     return parser
@@ -195,10 +194,10 @@ def main(args):
     rel_g_toast /= np.mean(rel_g_toast)
 
     linear_model = LinearModel1()
-    rel_g_fit_noisy = perform_fit(
-        linear_model, x_toast, y_toast, dets, verbose=args.verbose
-    )
-    save_result(args, dets, "noisy_fit", rel_g_toast, rel_g_fit_noisy)
+    # rel_g_fit_noisy = perform_fit(
+    #     linear_model, x_toast, y_toast, dets, verbose=args.verbose
+    # )
+    # save_result(args, dets, "noisy_fit", rel_g_toast, rel_g_fit_noisy)
 
     # wrong model: fit a wrong model to fake data
     # -------------------------------------------
@@ -210,10 +209,10 @@ def main(args):
     y_fake, tau_true, mean_g_true, rel_g_true = make_fake_data(x_toast, noise=False)
 
     # fit a linear model
-    rel_g_fit_wrong = perform_fit(
-        linear_model, x_toast, y_fake, dets, verbose=args.verbose
-    )
-    save_result(args, dets, "wrong_model", rel_g_true, rel_g_fit_wrong)
+    # rel_g_fit_wrong = perform_fit(
+    #     linear_model, x_toast, y_fake, dets, verbose=args.verbose
+    # )
+    # save_result(args, dets, "wrong_model", rel_g_true, rel_g_fit_wrong)
 
     # pointing error
     # --------------
@@ -223,7 +222,7 @@ def main(args):
 
     # add systematic errors to the elevation
     ndet = len(dets)
-    bias = np.deg2rad(rng.normal(loc=0, scale=args.pointing_error, size=(ndet, 1)))
+    bias = np.deg2rad(rng.normal(loc=0, scale=args.perr, size=(ndet, 1)))
     elevs_biased = elevs + bias
     x_biased = 1 / np.sin(elevs_biased)
 
