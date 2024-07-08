@@ -32,10 +32,40 @@ def build_parser():
         help="output directory for plots and data files",
     )
     parser.add_argument(
+        "--run-noisy-fit",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="run the noisy fit case",
+    )
+    parser.add_argument(
+        "--run-wrong-model",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="run the wrong model case",
+    )
+    parser.add_argument(
+        "--run-pointing-error",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="run the pointing error case",
+    )
+    parser.add_argument(
         "--perr",
         type=float,
-        default=1/60,  # 1 arcminute
-        help="typical elevation error in degrees",
+        default=1 / 60,  # 1 arcminute
+        help="[pointing error] typical elevation error in degrees",
+    )
+    parser.add_argument(
+        "--squash-fp",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="[pointing error] put all detectors at the same elevation",
+    )
+    parser.add_argument(
+        "--same-offset",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="[pointing error] add the same elevation offset to all detectors",
     )
     return parser
 
@@ -78,18 +108,24 @@ def make_fake_data(
     noise: bool = False,
     rng=None,
     realization: Optional[int] = None,
+    tau=None,
+    mean_g=None,
+    eps=None,
 ):
-    # if not provided, get a random number generator with optional seed
-    if rng is None:
-        rng = np.random.default_rng(realization)
+    if not (tau is not None and mean_g is not None and eps is not None):
+        # not all parameters provided, generate them
 
-    ndet = x.shape[0]
-    tau = rng.uniform(low=0.01, high=0.1)
-    mean_g = rng.uniform(low=200, high=300)
-    eps = rng.normal(loc=0, scale=0.1, size=ndet)
+        # if not provided, get a random number generator with optional seed
+        if rng is None:
+            rng = np.random.default_rng(realization)
+
+        ndet = x.shape[0]
+        tau = rng.uniform(low=0.01, high=0.1)
+        mean_g = rng.uniform(low=200, high=300)
+        eps = rng.normal(loc=0, scale=0.1, size=ndet)
+
     # make sure the mean is zero
     eps -= np.mean(eps)
-    rel_g = 1 + eps
 
     # use the "true" model
     from models import ExpModel2
@@ -100,7 +136,7 @@ def make_fake_data(
     if noise:
         scale = 0.01
         y += rng.normal(scale=scale, size=y.shape)
-    return y, tau, mean_g, rel_g
+    return y, tau, mean_g, eps
 
 
 def plot_resid(
@@ -176,64 +212,92 @@ def save_result(args, dets, base_name, rel_g_true, rel_g_fit, elev_bias=None):
 def main(args):
     from models import LinearModel1, ExpModel1
 
+    if not (args.run_noisy_fit or args.run_wrong_model or args.run_pointing_error):
+        print("Nothing to do. Exiting.")
+        return
+
     # get the data from TOAST
     ob, dets, times, elevs, x_toast, y_toast = prepare_data(args)
 
     # get a random number generator
     rng = np.random.default_rng(args.real)
 
+    # simulate some fake data following our "true" model
+    y_fake, tau_true, mean_g_true, eps_true = make_fake_data(
+        x_toast, rng=rng, noise=False
+    )
+    rel_g_true = 1 + eps_true
+
     # noisy fit: fit a correct model to noisy TOAST data
     # --------------------------------------------------
 
-    if args.verbose:
-        print("----- Running 'noisy fit' case -----")
+    if args.run_noisy_fit:
+        if args.verbose:
+            print("----- Running 'noisy fit' case -----")
 
-    # get the scrambled gains
-    rel_g_toast = np.asarray(list(ob.scrambled_gains.values()))
-    # ensure a central value of 1
-    rel_g_toast /= np.mean(rel_g_toast)
+        # get the scrambled gains
+        rel_g_toast = np.asarray(list(ob.scrambled_gains.values()))
+        # ensure a central value of 1
+        rel_g_toast /= np.mean(rel_g_toast)
 
-    linear_model = LinearModel1()
-    # rel_g_fit_noisy = perform_fit(
-    #     linear_model, x_toast, y_toast, dets, verbose=args.verbose
-    # )
-    # save_result(args, dets, "noisy_fit", rel_g_toast, rel_g_fit_noisy)
+        linear_model = LinearModel1()
+        rel_g_fit_noisy = perform_fit(
+            linear_model, x_toast, y_toast, dets, verbose=args.verbose
+        )
+        save_result(args, dets, "noisy_fit", rel_g_toast, rel_g_fit_noisy)
 
     # wrong model: fit a wrong model to fake data
     # -------------------------------------------
 
-    if args.verbose:
-        print("\n----- Running 'wrong model' case -----")
+    if args.run_wrong_model:
+        if args.verbose:
+            print("\n----- Running 'wrong model' case -----")
 
-    # simulate some fake data following our "true" model
-    y_fake, tau_true, mean_g_true, rel_g_true = make_fake_data(x_toast, noise=False)
-
-    # fit a linear model
-    # rel_g_fit_wrong = perform_fit(
-    #     linear_model, x_toast, y_fake, dets, verbose=args.verbose
-    # )
-    # save_result(args, dets, "wrong_model", rel_g_true, rel_g_fit_wrong)
+        # fit a linear model
+        linear_model = LinearModel1()
+        rel_g_fit_wrong = perform_fit(
+            linear_model, x_toast, y_fake, dets, verbose=args.verbose
+        )
+        save_result(args, dets, "wrong_model", rel_g_true, rel_g_fit_wrong)
 
     # pointing error
     # --------------
 
-    if args.verbose:
-        print("\n----- Running 'pointing error' case -----")
+    if args.run_pointing_error:
+        if args.verbose:
+            print("\n----- Running 'pointing error' case -----")
 
-    # add systematic errors to the elevation
-    ndet = len(dets)
-    bias = np.deg2rad(rng.normal(loc=0, scale=args.perr, size=(ndet, 1)))
-    elevs_biased = elevs + bias
-    x_biased = 1 / np.sin(elevs_biased)
+        # add systematic errors to the elevation
+        ndet = len(dets)
+        if args.squash_fp:
+            # put all detectors at the same elevation
+            _elevs = np.tile(elevs[0], (ndet, 1))
+            # we need to re-compute y_fake from the new elevations
+            y_fake, _, _, _ = make_fake_data(
+                1 / np.sin(_elevs),
+                tau=tau_true,
+                mean_g=mean_g_true,
+                eps=eps_true,
+                noise=False,
+            )
+        else:
+            _elevs = elevs.copy()
+        # add a constant offset to all detectors
+        if args.same_offset:
+            bias = np.deg2rad(rng.normal(loc=0, scale=args.perr))
+        else:
+            bias = np.deg2rad(rng.normal(loc=0, scale=args.perr, size=(ndet, 1)))
+        elevs_biased = _elevs + bias
+        x_biased = 1 / np.sin(elevs_biased)
 
-    # fit the correct model but with biased x
-    exp_model = ExpModel1()
-    rel_g_fit_perror = perform_fit(
-        exp_model, x_biased, y_fake, dets, verbose=args.verbose
-    )
-    save_result(
-        args, dets, "pointing_error", rel_g_true, rel_g_fit_perror, elev_bias=bias
-    )
+        # fit the correct model but with biased x
+        exp_model = ExpModel1()
+        rel_g_fit_perror = perform_fit(
+            exp_model, x_biased, y_fake, dets, verbose=args.verbose
+        )
+        save_result(
+            args, dets, "pointing_error", rel_g_true, rel_g_fit_perror, elev_bias=bias
+        )
 
 
 if __name__ == "__main__":
