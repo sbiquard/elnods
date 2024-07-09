@@ -1,6 +1,6 @@
-import numpy as np
 from typing import Optional
 
+import numpy as np
 
 THINFP = 640
 FOCALPLANE = "focalplanes/focalplane_SAT1_SAT_f095_ST0.h5"
@@ -19,9 +19,8 @@ def simulate_data(
 ):
     import toast
     import toast.io
-    import toast.schedule
     import toast.ops
-
+    import toast.schedule
     from astropy import units as u
 
     # Load a generic focalplane file.

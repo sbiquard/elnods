@@ -1,9 +1,9 @@
+from abc import ABC, abstractmethod
+from typing import ClassVar, Optional
+
 import numpy as np
 import scipy.sparse as sps
-
-from abc import ABC, abstractmethod
 from scipy.optimize import OptimizeResult, minimize
-from typing import Optional, ClassVar
 
 from utils import div_mean
 
@@ -29,7 +29,7 @@ class Model(ABC):
     def chi2_fun(self, params, x, y) -> float:
         """Compute the chi2 of the model, i.e. sum((y - model(x))**2)"""
         ypred = self.evaluate(params, x)
-        return np.sum((y - ypred)**2)
+        return np.sum((y - ypred) ** 2)
 
     @abstractmethod
     def evaluate(self, params, x) -> np.ndarray:
@@ -54,7 +54,7 @@ class Model(ABC):
         tol: Optional[float] = None,
         maxiter_factor: Optional[int] = None,
         use_hess: bool = True,
-        sparse_hessian: bool = True
+        sparse_hessian: bool = True,
     ) -> OptimizeResult:
         """Perform the fit by minimizing the chi2 value"""
         if init_params is None:
@@ -73,15 +73,7 @@ class Model(ABC):
         """Default initial parameters for the minimization"""
 
     def _minimize_kwargs(
-        self,
-        x,
-        y,
-        init_params,
-        disp,
-        tol,
-        maxiter_factor,
-        use_hess,
-        sparse_hessian
+        self, x, y, init_params, disp, tol, maxiter_factor, use_hess, sparse_hessian
     ):
         """Get kwargs for the minimization function"""
         kwargs = {
@@ -89,7 +81,7 @@ class Model(ABC):
             "jac": True,
             "method": self.minimizer,
             "tol": tol,
-            "options": {"disp": disp}
+            "options": {"disp": disp},
         }
 
         if maxiter_factor is not None:
@@ -156,9 +148,7 @@ class LinearModel1(Model):
         # indices = np.arange(m)
         # values = np.einsum("ij,ij->i", x, x)
         # return csr_matrix((2 * values, indices, indptr), shape=(m, m))
-        return sps.diags(
-            2 * np.einsum("ij,ij->i", x, x), shape=(m, m), format="csr"
-        )  # type: ignore
+        return sps.diags(2 * np.einsum("ij,ij->i", x, x), shape=(m, m), format="csr")  # type: ignore
 
 
 class LinearModel2(Model):
@@ -197,6 +187,7 @@ class LinearModel2(Model):
 
         # add a constraint on the epsilons
         from scipy.optimize import LinearConstraint
+
         ndet = x.shape[0]
         kwargs["constraints"] = LinearConstraint(
             np.r_[0, np.ones(ndet)].reshape(1, -1), lb=0, ub=0
@@ -233,7 +224,6 @@ class LinearModel2(Model):
         h_diag[1:] = np.einsum("ij,ij->i", x, x) * mean_g**2
 
         return 2 * hess
-
 
     def hess_sp(self, params, x, y) -> sps.csr_matrix:
         mean_g, rel_g = self._extract_params(params)
@@ -374,7 +364,9 @@ class ExpModel2(Model):
 
     @staticmethod
     def param_labels(ndet: int) -> list[str]:
-        return ["$\\tau$", "$g_0$"] + ["$\\epsilon_{" + str(x) + "}$" for x in range(ndet)]
+        return ["$\\tau$", "$g_0$"] + [
+            "$\\epsilon_{" + str(x) + "}$" for x in range(ndet)
+        ]
 
     def evaluate(self, params, x) -> np.ndarray:
         tau, mean_g, rel_g = self._extract_params(params)
@@ -406,6 +398,7 @@ class ExpModel2(Model):
 
         # add a constraint on the epsilons
         from scipy.optimize import LinearConstraint
+
         ndet = x.shape[0]
         kwargs["constraints"] = LinearConstraint(
             np.r_[0, 0, np.ones(ndet)].reshape(1, -1), lb=0, ub=0

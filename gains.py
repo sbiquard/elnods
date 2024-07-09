@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 
 import argparse
+import os
+from typing import Optional
+
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
-import os
-
 from scipy.optimize import OptimizeResult
-from typing import Optional
 
 from models import Model
 
@@ -72,6 +72,7 @@ def build_parser():
 
 def prepare_data(args):
     import toast
+
     import utils
 
     # simulate TOAST data with an elnod at the start of the observation
@@ -209,7 +210,7 @@ def save_result(args, dets, base_name, rel_g_true, rel_g_fit, elev_bias=None):
 
 
 def main(args):
-    from models import LinearModel1, ExpModel1
+    from models import ExpModel1, LinearModel1
 
     if not (args.run_noisy_fit or args.run_wrong_model or args.run_pointing_error):
         print("Nothing to do. Exiting.")
