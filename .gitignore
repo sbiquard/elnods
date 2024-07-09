@@ -4,4 +4,5 @@ atm_cache/
 elnod_out/
 notebooks/
 focalplanes/
+schedules/
 *.ipynb

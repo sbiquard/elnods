@@ -1,25 +1,32 @@
 #!/bin/bash
+#SBATCH --job-name=elnod
+#SBATCH --account=nih@cpu
+#SBATCH --qos=qos_cpu-dev
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=1
+#SBATCH --cpus-per-task=20
+#SBATCH --hint=nomultithread
+#SBATCH --time=00:10:00
+#SBATCH --output=out/elnod%j.out
+#SBATCH --error=out/elnod%j.out
+
+cd ${SLURM_SUBMIT_DIR}
+
+module purge
+cmbenv
 
 start=$1
 stop=$2
 
-outdir=elnod_out
+outdir=out
 
-logfile=${outdir}/mc_${start}_${stop}.log
-if [[ -e $logfile ]]; then
-    echo "$logfile exists. Overwriting!"
-else
-    echo "Writing to $logfile"
-    touch $logfile
-fi
-
-echo "Running MC from $start to $stop" >$logfile
+echo "Running from $start to $stop"
 
 for ((real = $start; real < $stop; real++)); do
-    echo "" >>$logfile
-    echo "----------------------------------------" >>$logfile
-    echo "real = $real" >>$logfile
-    python3 gains.py --outdir $outdir --real $real >>$logfile 2>&1
+    echo ""
+    echo "----------------------------------------"
+    echo "real = $real"
+    python3 gains.py --outdir $outdir --real $real --thinfp 4
 done
 
-echo "Done! Check $logfile for details."
+echo "Done!"
