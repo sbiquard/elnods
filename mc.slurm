@@ -1,8 +1,8 @@
 #!/bin/bash
 #SBATCH --job-name=elnod-array
-#SBATCH --array=0-100%5   # max 5 jobs in the qos simultaneously
+#SBATCH --array=0-100%20   # max 20 jobs in the qos simultaneously
 #SBATCH --account=nih@cpu
-#SBATCH --qos=qos_cpu-dev
+##SBATCH --qos=qos_cpu-dev
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=20
