@@ -9,6 +9,5 @@ cd focalplanes
 s4_hardware_to_toast3.py --telescope SAT1 --by-tube
 
 # extract a CES from a sample schedule
-cd ../schedules
-schedule=atacama.1ces.txt
+schedule=schedules/atacama.1ces.txt
 head -n 4 sample.txt >$schedule
