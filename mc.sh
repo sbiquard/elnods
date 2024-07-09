@@ -3,7 +3,7 @@
 start=$1
 stop=$2
 
-outdir=elnod_out
+outdir=out
 
 logfile=${outdir}/mc_${start}_${stop}.log
 if [[ -e $logfile ]]; then
