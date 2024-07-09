@@ -112,13 +112,12 @@ def make_fake_data(
     mean_g=None,
     eps=None,
 ):
+    # if not provided, get a random number generator with optional seed
+    if rng is None:
+        rng = np.random.default_rng(realization)
+
     if not (tau is not None and mean_g is not None and eps is not None):
         # not all parameters provided, generate them
-
-        # if not provided, get a random number generator with optional seed
-        if rng is None:
-            rng = np.random.default_rng(realization)
-
         ndet = x.shape[0]
         tau = rng.uniform(low=0.01, high=0.1)
         mean_g = rng.uniform(low=200, high=300)
