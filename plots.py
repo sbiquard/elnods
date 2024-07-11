@@ -156,12 +156,9 @@ def make_histograms(data, plot_path, distribution, distribution_pairs):
     ):
         with open(fname, "w") as f:
             for flavor in fit_params:
-                pars = params[flavor]
-                if pars is None:
+                if (pars := params[flavor]) is None:
                     continue
-                f.write(
-                    ", ".join([flavor, dist] + [f"{x:.18e}" for x in params[flavor]])
-                )
+                f.write(", ".join([flavor, dist] + [f"{x:.18e}" for x in pars]))
                 f.write("\n")
 
 
