@@ -83,7 +83,6 @@ def make_histograms(data, plot_path, distribution, distribution_pairs):
     def func(ax, values, dist: Optional[str] = None):
         # plot the histogram
         ax.hist(values, density=True, bins="auto")
-        ax.set_xlabel("Error")
         ax.set_ylabel("Density")
 
         # compute statistics
@@ -109,10 +108,11 @@ def make_histograms(data, plot_path, distribution, distribution_pairs):
 
             # fit a distribution on top
             stat = getattr(scipy.stats, dist)
-            *shape, loc, scale = stat.fit(values)
+            parameters = stat.fit(values)
+            *shape, loc, scale = parameters
 
             xmin, xmax = ax.get_xlim()
-            x = np.linspace(xmin, xmax, 100)
+            x = np.linspace(xmin, xmax, 1000)
             p = stat.pdf(x, *shape, loc=loc, scale=scale)
             ax.plot(
                 x,
@@ -123,28 +123,43 @@ def make_histograms(data, plot_path, distribution, distribution_pairs):
             )
             ax.legend(loc="upper right")
 
+            return parameters
+
+    fit_params = {}
     for i, (flavor, df) in enumerate(data.items()):
         ax = axs[i]
         diff = df[1] - df[0]
-        func(ax, diff.ravel(), dist=distribution)
+        fit_params[flavor] = func(ax, diff.ravel(), dist=distribution)
+        ax.set_xlabel("Error on relative gain")
         ax.set_title(flavor)
-    # for ax in axs:
-    #     ax.label_outer()
     fig.tight_layout()
     plt.savefig(plot_path / "histo")
 
     # now for the detectors pairs
     fig, axs = plt.subplots(1, nf, figsize=(4 * nf, 4))
+    fit_params_pairs = {}
     for i, (flavor, df) in enumerate(data.items()):
         ax = axs[i]
         diff = df[1] - df[0]
         diff_pairs = diff[:, ::2] - diff[:, 1::2]
-        func(ax, diff_pairs.ravel(), dist=distribution_pairs)
+        fit_params_pairs[flavor] = func(ax, diff_pairs.ravel(), dist=distribution_pairs)
+        ax.set_xlabel("Error discrepancy within pair")
         ax.set_title(flavor)
-    # for ax in axs:
-    #     ax.label_outer()
     fig.tight_layout()
     plt.savefig(plot_path / "histo_pairs")
+
+    # save the fit information
+    for params, fname, dist in zip(
+        (fit_params, fit_params_pairs),
+        (plot_path / "fit_params.out", plot_path / "fit_params_pairs.out"),
+        (distribution, distribution_pairs),
+    ):
+        with open(fname, "w") as f:
+            for flavor in fit_params:
+                f.write(
+                    ", ".join([flavor, dist] + [f"{x:.18e}" for x in params[flavor]])
+                )
+                f.write("\n")
 
 
 def main(args):
