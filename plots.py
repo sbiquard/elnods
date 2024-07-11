@@ -3,7 +3,6 @@
 import argparse
 import os
 import re
-
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
@@ -11,7 +10,6 @@ from typing import Optional
 import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
-
 
 FLAVORS = ["noisy_fit", "wrong_model", "pointing_error"]
 
@@ -27,7 +25,9 @@ def explore(data_path):
     p = re.compile(r"(\D*)_(\d+)_(\d+)\.npz")
     for child in data_path.iterdir():
         fname = os.path.basename(child)
-        m = p.match(fname)
+        if (m := p.match(fname)) is None:
+            print(f"Skipping {fname} (couldn't extract info)")
+            continue
         flavor, ndet, real = m.groups()
         info = infos[flavor]
         info.ndet_max = max(info.ndet_max, int(ndet))
