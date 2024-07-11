@@ -6,6 +6,7 @@ import re
 
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Optional
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -74,14 +75,14 @@ def make_correl_plots(data, plot_path):
     plt.savefig(plot_path / "correl")
 
 
-def make_histograms(data, plot_path):
+def make_histograms(data, plot_path, distribution, distribution_pairs):
     nf = len(data)
     fig, axs = plt.subplots(1, nf, figsize=(4 * nf, 4))
 
     # helper function
-    def func(ax, values, normal=False, log=False):
+    def func(ax, values, dist: Optional[str] = None):
         # plot the histogram
-        ax.hist(values.ravel(), density=True, bins="auto", log=log)
+        ax.hist(values, density=True, bins="auto")
         ax.set_xlabel("Error")
         ax.set_ylabel("Density")
 
@@ -103,19 +104,29 @@ def make_histograms(data, plot_path):
             bbox=props,
         )
 
-        if normal:
-            # plot a normal distribution on top
-            from scipy.stats import norm
+        if dist is not None:
+            import scipy.stats
+
+            # fit a distribution on top
+            stat = getattr(scipy.stats, dist)
+            *shape, loc, scale = stat.fit(values)
 
             xmin, xmax = ax.get_xlim()
             x = np.linspace(xmin, xmax, 100)
-            p = norm.pdf(x, mu, std)
-            ax.plot(x, p, "r--", linewidth=1)
+            p = stat.pdf(x, *shape, loc=loc, scale=scale)
+            ax.plot(
+                x,
+                p,
+                "r--",
+                linewidth=1,
+                label=f"{dist} fit",
+            )
+            ax.legend(loc="upper right")
 
     for i, (flavor, df) in enumerate(data.items()):
         ax = axs[i]
         diff = df[1] - df[0]
-        func(ax, diff, normal=True)
+        func(ax, diff.ravel(), dist=distribution)
         ax.set_title(flavor)
     # for ax in axs:
     #     ax.label_outer()
@@ -128,7 +139,7 @@ def make_histograms(data, plot_path):
         ax = axs[i]
         diff = df[1] - df[0]
         diff_pairs = diff[:, ::2] - diff[:, 1::2]
-        func(ax, diff_pairs)
+        func(ax, diff_pairs.ravel(), dist=distribution_pairs)
         ax.set_title(flavor)
     # for ax in axs:
     #     ax.label_outer()
@@ -152,7 +163,7 @@ def main(args):
         make_correl_plots(data, plot_path)
 
     if args.make_histograms:
-        make_histograms(data, plot_path)
+        make_histograms(data, plot_path, args.dist, args.dist_pairs)
 
 
 if __name__ == "__main__":
@@ -181,6 +192,18 @@ if __name__ == "__main__":
         action=argparse.BooleanOptionalAction,
         default=True,
         help="produce histograms of errors",
+    )
+    parser.add_argument(
+        "--dist",
+        choices=["norm", "cauchy", "skewnorm", "skewcauchy"],
+        default="skewnorm",
+        help="type of probability distribution to use for histogram fits",
+    )
+    parser.add_argument(
+        "--dist-pairs",
+        choices=["norm", "cauchy", "skewnorm", "skewcauchy"],
+        default="cauchy",
+        help="type of probability distribution to use for histogram fits of pairs",
     )
     args = parser.parse_args()
     main(args)
